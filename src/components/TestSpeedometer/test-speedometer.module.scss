@@ -1,0 +1,90 @@
+.mainContainer {
+  display: grid;
+  position: relative;
+  width: 500px;
+  height: 500px;
+  border-radius: 100%;
+  border: 2px solid white;
+  > * {
+    grid-area: 1/1;
+  }
+  .dialCont {
+    .dial {
+      width: 6px;
+      height: calc(50% - 32px);
+      background-color: rgb(245, 109, 109);
+      position: absolute;
+      bottom: 50%;
+      left: calc(50% - 3px);
+      //   opacity: 0.7;
+      z-index: 2;
+      transform-origin: 50% 100%;
+      transform: rotate(var(--r));
+      transition: transform 200ms linear;
+
+      border-radius: 1rem;
+    }
+  }
+  .statsCont {
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: 300px;
+  }
+  .labelNumbersCont {
+    z-index: 5;
+    display: grid;
+    padding: 40px;
+    > * {
+      grid-area: 1/1;
+    }
+    .label {
+      //   display: flex;
+      //   justify-content: center;
+      transform: rotate(var(--lr));
+      .ln {
+        transform: rotate(calc(var(--lr) * -1));
+        // width: 52px;
+      }
+    }
+  }
+  .labelsCont {
+    z-index: 4;
+    display: grid;
+    > * {
+      grid-area: 1/1;
+    }
+    .label {
+      display: flex;
+      justify-content: center;
+      transform: rotate(var(--lr));
+      .line {
+        width: 5px;
+        height: 22px;
+        background-color: white;
+        position: relative;
+        .lnc {
+          width: 60px;
+          height: 30px;
+          background-color: red;
+          position: absolute;
+          transform-origin: 80% 60%;
+          transform: rotate(calc(var(--lr) * -1));
+          //   rotate: 90deg;
+
+          bottom: -32px;
+          left: -30px;
+        }
+        .ln {
+          position: absolute;
+          left: var(--dsm);
+          bottom: -50px;
+          transform: rotate(calc(var(--lr) * -1));
+          width: var(--ds);
+          text-align: left;
+        }
+      }
+    }
+  }
+}
