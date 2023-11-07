@@ -1,9 +1,10 @@
-import { signal, effect, computed } from "@preact/signals-react";
-import socketIOClient from "socket.io-client";
-import { filterOutliers } from "./functions";
+import { signal, effect, computed } from '@preact/signals-react';
+import socketIOClient from 'socket.io-client';
+import { filterOutliers } from './functions';
+
 // Constants
 const DEFAULT_PORT = 22520;
-const ENDPOINT = `http://127.0.0.1:${DEFAULT_PORT}`;
+const ENDPOINT = `http://localhost:${DEFAULT_PORT}`;
 
 // Signals
 const socket = signal(null);
@@ -11,6 +12,7 @@ const socket = signal(null);
 // State signals
 const fakeSpeed = signal(0);
 const resistor33 = signal(0);
+// Position
 const carPosition = signal(null);
 const carLatLng = computed(() => {
   if (!carPosition.value)
@@ -24,8 +26,11 @@ const carLatLng = computed(() => {
     lng,
   };
 });
+
+// Navigation
 const previewRoute = signal(null);
 const currentRoute = signal(null);
+const currentStep = signal(null);
 
 // Networks stats
 const requests = signal(0);
@@ -70,6 +75,7 @@ const signalStore = {
   carPosition,
   previewRoute,
   currentRoute,
+  currentStep,
   // Other
   latencyRecord,
   lastLatency,
@@ -80,7 +86,7 @@ async function initializeComms() {
   let _socket = socketIOClient(ENDPOINT);
   socket.value = _socket;
 
-  socket.value.on("stateUpdate", (key, value, timestamp) => {
+  socket.value.on('stateUpdate', (key, value, timestamp) => {
     let latency = new Date().getTime() - timestamp;
 
     let _signal = signalStore?.[key] || null;
@@ -106,6 +112,7 @@ export {
   carPosition,
   previewRoute,
   currentRoute,
+  currentStep,
   // Derived state
   carLatLng,
   // Other
