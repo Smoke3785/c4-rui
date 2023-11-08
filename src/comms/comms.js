@@ -1,6 +1,7 @@
-import { signal, effect, computed } from '@preact/signals-react';
-import socketIOClient from 'socket.io-client';
-import { filterOutliers } from './functions';
+import { signal, effect, computed } from "@preact/signals-react";
+import socketIOClient from "socket.io-client";
+import { filterOutliers, formatNumber } from "./functions";
+import { vectorMath } from "../helpers/math";
 
 // Constants
 const DEFAULT_PORT = 22520;
@@ -13,24 +14,92 @@ const socket = signal(null);
 const fakeSpeed = signal(0);
 const resistor33 = signal(0);
 // Position
-const carPosition = signal(null);
+const fakeCarPosition = signal({ lat: 0, lng: 0 });
+const carPosition = signal({ lat: 0, lng: 0 });
 const carLatLng = computed(() => {
-  if (!carPosition.value)
-    return {
-      lat: 0,
-      lng: 0,
-    };
-  let [lat, lng] = carPosition.value;
-  return {
-    lat,
-    lng,
-  };
+  return carPosition.value;
 });
 
 // Navigation
 const previewRoute = signal(null);
 const currentRoute = signal(null);
 const currentStep = signal(null);
+const currentStepObject = computed(() => {
+  if (!currentRoute.value) return null;
+  return currentRoute?.value?.steps?.[currentStep?.value] || null;
+});
+const nextPoint = signal(null);
+const nextPointCoordinates = computed(() => {
+  if (!currentRoute.value) return null;
+  return currentStepObject?.value?.points?.[nextPoint?.value] || null;
+});
+const lastPointCoordinates = computed(() => {
+  if (nextPoint.value === null) return null;
+  if (nextPoint.value === 0) {
+    return carLatLng?.value || null;
+  }
+  return currentStepObject?.value?.points?.[nextPoint?.value - 1] || null;
+});
+const distanceFromLastPoint = computed(() => {
+  if (carLatLng.value === null) return null;
+  if (lastPointCoordinates.value === null) return null;
+  return formatNumber(
+    vectorMath.haversineDistance(carLatLng.value, lastPointCoordinates.value)
+  );
+});
+const distanceFromNextPoint = computed(() => {
+  if (carLatLng.value === null) return null;
+  if (nextPointCoordinates.value === null) return null;
+  return formatNumber(
+    vectorMath.haversineDistance(carLatLng.value, nextPointCoordinates.value)
+  );
+});
+const distanceToNextStep = computed(() => {
+  if (currentStepPointVectors.value === null) return null;
+  if (distanceFromNextPoint.value === null) return null;
+  if (nextPoint.value === null) return null;
+  let remainingPointVectors = currentStepPointVectors.value.slice(
+    nextPoint.value + 1,
+    currentStepPointVectors.value.length
+  );
+
+  let distances = remainingPointVectors.map(([a, b]) =>
+    vectorMath.haversineDistance(a, b)
+  );
+
+  distances.push(distanceFromNextPoint.value);
+
+  return formatNumber(distances.reduce((s, a) => a + s, 0));
+});
+
+const distanceToDestination = computed(() => {
+  if (distanceToNextStep.value === null) return null;
+  if (currentRoute.value === null) return null;
+  if (currentStep.value === null) return null;
+
+  let remainingStepsDistance = currentRoute.value.steps
+    .slice(currentStep.value + 1, currentRoute.value.steps.length - 1)
+    .reduce((s, a) => a.distance.value + s, 0);
+
+  return formatNumber(remainingStepsDistance + distanceToNextStep.value);
+});
+
+const currentStepPointVectors = computed(() => {
+  if (currentStepObject.value == null) return null;
+  let temp = currentStepObject.value.points;
+  // temp.shift();
+
+  // Group temp into pairs
+  let pairs = [];
+  for (let i = 0; i < temp.length; i++) {
+    let c = temp[i];
+    let n = temp[i + 1];
+    if (!n) continue;
+    pairs.push([c, n]);
+  }
+
+  return pairs;
+});
 
 // Networks stats
 const requests = signal(0);
@@ -72,10 +141,12 @@ const signalStore = {
   // State
   fakeSpeed,
   resistor33,
+  fakeCarPosition,
   carPosition,
   previewRoute,
   currentRoute,
   currentStep,
+  nextPoint,
   // Other
   latencyRecord,
   lastLatency,
@@ -86,7 +157,7 @@ async function initializeComms() {
   let _socket = socketIOClient(ENDPOINT);
   socket.value = _socket;
 
-  socket.value.on('stateUpdate', (key, value, timestamp) => {
+  socket.value.on("stateUpdate", (key, value, timestamp) => {
     let latency = new Date().getTime() - timestamp;
 
     let _signal = signalStore?.[key] || null;
@@ -113,6 +184,15 @@ export {
   previewRoute,
   currentRoute,
   currentStep,
+  currentStepObject,
+  nextPoint,
+  lastPointCoordinates,
+  nextPointCoordinates,
+  currentStepPointVectors,
+  distanceFromLastPoint,
+  distanceFromNextPoint,
+  distanceToNextStep,
+  distanceToDestination,
   // Derived state
   carLatLng,
   // Other

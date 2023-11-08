@@ -1,8 +1,8 @@
 // Styles
-import styles from './test-maps.module.scss';
+import styles from "./test-maps.module.scss";
 
 // Maths
-import { vectorMath } from '../helpers/math';
+import { vectorMath } from "../helpers/math";
 
 // Dependencies
 import {
@@ -11,9 +11,9 @@ import {
   Polyline,
   Marker,
   OverlayView,
-} from '@react-google-maps/api';
-import { useEffect, useState, useCallback } from 'react';
-import { signal, effect, computed } from '@preact/signals-react';
+} from "@react-google-maps/api";
+import { useEffect, useState, useCallback } from "react";
+import { signal, effect, computed } from "@preact/signals-react";
 
 // eSignals
 import {
@@ -22,8 +22,17 @@ import {
   currentRoute,
   carLatLng,
   currentStep,
-} from '../comms/comms';
-import { socketRequest } from '../comms/functions';
+  currentStepObject,
+  nextPoint,
+  nextPointCoordinates,
+  lastPointCoordinates,
+  currentStepPointVectors,
+  distanceFromLastPoint,
+  distanceFromNextPoint,
+  distanceToNextStep,
+  distanceToDestination,
+} from "../comms/comms";
+import { socketRequest } from "../comms/functions";
 
 // iSignals
 const mapCenter = signal({ lat: 0, lng: 0 });
@@ -31,68 +40,43 @@ const snapToCurrentLocation = signal(true);
 const dragging = signal(false);
 const map = signal(null);
 const displayMode = computed(() => {
-  if (currentRoute.value) return 'navigate';
-  if (previewRoute.value) return 'preview';
-  return 'idle';
+  if (currentRoute.value) return "navigate";
+  if (previewRoute.value) return "preview";
+  return "idle";
 }); // idle, preview, navigate
 
 // TEST
 const firstSubStep = computed(() => {
-  if (currentStep.value == null) return null;
+  if (currentStepObject.value == null) return null;
 
-  return [carLatLng.value, currentStep.value.latLng[0]];
-});
-
-const subSteps = computed(() => {
-  if (currentStep.value == null) return null;
-  let temp = currentStep.value.latLng;
-  temp.shift();
-
-  // Group temp into pairs
-  let pairs = [];
-  for (let i = 0; i < temp.length; i++) {
-    let c = temp[i];
-    let n = temp[i + 1];
-    if (!n) continue;
-    pairs.push([c, n]);
-  }
-
-  return pairs;
+  return [carLatLng.value, nextPointCoordinates.value];
 });
 
 // Effects
 const effects = [
   effect(() => {
-    if (displayMode.value === 'preview') return;
+    if (displayMode.value === "preview") return;
     if (snapToCurrentLocation.value !== true) return;
-    if (carPosition.value == null) return;
+    if (carLatLng.value == null) return;
 
-    map?.value?.panTo({
-      lat: carPosition.value[0],
-      lng: carPosition.value[1],
-    });
+    map?.value?.panTo(carLatLng.value);
   }),
 
   effect(() => {
     if (dragging.value === true) {
-      if (displayMode.value === 'preview') return;
+      if (displayMode.value === "preview") return;
       snapToCurrentLocation.value = false;
     }
   }),
   effect(() => {
-    // console.log([
-    //   displayMode.value,
-    //   displayMode.value === "preview",
-    //   map.value,
-    //   map.value !== null,
-    // ]);
-    if (displayMode.value === 'navigate' && map.value !== null) {
+    if (displayMode.value === "navigate" && map.value !== null) {
       beginNavigation();
     }
-    if (displayMode.value === 'preview' && map.value !== null) {
+    if (displayMode.value === "preview" && map.value !== null) {
       mapOverviewTransition();
     }
   }),
+  effect(() => {}),
 ];
 
 function beginNavigation() {
@@ -119,87 +103,63 @@ const CarMarker = () => {
   return <div className={styles.carMarkerContainer}></div>;
 };
 
-const StepsPolyline = ({ latLng, ...props }) => {
-  return (
-    <Polyline
-      options={{
-        map: map.value,
-        path: latLng,
-        strokeColor: 'red',
-        ...props,
-      }}
-    />
-  );
+const StepsPolyline = ({ step, idx }) => {
+  // Do not display old steps?
+  // if(currentStep.value > idx) return
+  const isCurrentStep = idx === currentStep.value;
+
+  if (!isCurrentStep) {
+    return (
+      <Polyline
+        options={{
+          map: map.value,
+          path: step.points,
+          strokeColor: "red",
+        }}
+      />
+    );
+  }
 };
 
 const CurrentStepPolyline = () => {
-  let stepsToRender = currentStep.value.latLng;
-
-  function atv(a) {
-    return {
-      lat: a[0],
-      lng: a[1],
-    };
-  }
-
-  function vta(v) {
-    return [v.lat, v.lng];
-  }
-  console.log({
-    stepsToRender,
-    a: stepsToRender.length,
-    subSteps: subSteps.value,
-    firstSubStep: firstSubStep.value,
-  });
-
-  let lt = vectorMath.midpoint(
-    [firstSubStep.value[0].lat, firstSubStep.value[0].lng],
-    [firstSubStep.value[1].lat, firstSubStep.value[1].lng]
-  );
+  let lt = vectorMath.midpoint(firstSubStep.value[0], firstSubStep.value[1]);
 
   let labelPosition = {
     lat: lt[0],
     lng: lt[1],
   };
 
-  console.log({
-    a: firstSubStep.value[0],
-    b: firstSubStep.value[1],
-    labelPosition,
-  });
-
-  let distance = vectorMath.distance(
-    vta(firstSubStep.value[0]),
-    vta(firstSubStep.value[1])
+  let distance = vectorMath.haversineDistance(
+    firstSubStep.value[0],
+    firstSubStep.value[1],
+    "m"
   );
-
-  console.log({ distance });
 
   return (
     <>
       <OverlayView
         // getPixelPositionOffset={getPixelPositionOffset}
-        mapPaneName='overlayLayer'
+        mapPaneName="overlayLayer"
         position={labelPosition}
       >
-        <p>{distance}</p>
+        <p>{distanceFromNextPoint}</p>
       </OverlayView>
       <Polyline
         options={{
           map: map.value,
           path: firstSubStep.value,
-          strokeColor: 'green',
+          strokeColor: "green",
         }}
         // key={idx}
       />
-      {subSteps.value.map((step, idx) => {
+      {currentStepPointVectors.value.map((step, idx) => {
         // console.log({ step, idx });
         return (
           <Polyline
             options={{
               map: map.value,
               path: step,
-              strokeColor: 'blue',
+              strokeColor: nextPoint.value > idx ? "gray" : "blue",
             }}
             key={idx}
           />
@@ -210,48 +170,48 @@ const CurrentStepPolyline = () => {
 };
 
 const TestMaps = () => {
-  const [search, setSearch] = useState('white house');
-  const [error, setError] = useState('null');
+  const [search, setSearch] = useState("white house");
+  const [error, setError] = useState("null");
   const [loading, setLoading] = useState(false);
 
   // Functions
   async function requestRoute() {
     setLoading(true);
-    const response = await socketRequest('requestRoutePreview', 5000, search);
-    if (response !== 'SUCCESS') {
+    const response = await socketRequest("requestRoutePreview", 5000, search);
+    if (response !== "SUCCESS") {
       setError(response);
     } else {
       setError(null);
     }
-    console.log(response);
+    // console.log(response);
     setLoading(false);
   }
   async function beginNavigation() {
-    const response = await socketRequest('confirmRoutePreview', 5000);
+    const response = await socketRequest("confirmRoutePreview", 5000);
   }
   async function clearRoute() {
-    const response = await socketRequest('clearRoutePreview', 5000);
+    const response = await socketRequest("clearRoutePreview", 5000);
   }
   function centerView() {
     snapToCurrentLocation.value = true;
   }
 
   const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
+    id: "google-map-script",
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
   });
 
   function currentDestinationString() {
     if (previewRoute.value) {
-      return previewRoute.value?.legs?.[0]?.end_address || 'UNKNOWN';
+      return previewRoute.value?.legs?.[0]?.end_address || "UNKNOWN";
     }
-    return 'none';
+    return "none";
   }
 
   function onInitialLoad() {
     map.value.setTilt(45);
     map.value.setZoom(17);
-    console.log(mapCenter.value);
+    // console.log(mapCenter.value);
     map.value.setCenter(mapCenter.value);
   }
 
@@ -274,11 +234,48 @@ const TestMaps = () => {
     };
   }, []);
 
+  useEffect(() => {
+    window.addEventListener("keydown", (key) => {
+      // console.log(key);
+
+      switch (key.code) {
+        case "ArrowUp": {
+          return socketRequest("up");
+        }
+        case "ArrowDown": {
+          return socketRequest("down");
+        }
+        case "ArrowRight": {
+          return socketRequest("right");
+        }
+        case "ArrowLeft": {
+          return socketRequest("left");
+        }
+      }
+    });
+  }, []);
+
   return (
     <div className={styles.mainContainer}>
       <div className={styles.sidebar}>
         <div className={styles.nav}>
           <h3>Navigation</h3>
+          <p>
+            distanceFromLastPoint: <br />
+            {distanceFromLastPoint}
+          </p>
+          <p>
+            distanceFromNextPoint: <br />
+            {distanceFromNextPoint}
+          </p>
+          <p>
+            distanceToNextStep: <br />
+            {distanceToNextStep}
+          </p>
+          <p>
+            distanceToDestination: <br />
+            {distanceToDestination}
+          </p>
         </div>
         <div className={styles.content}>
           <div>
@@ -286,9 +283,9 @@ const TestMaps = () => {
             <p className={styles.dest}>
               Destination: {currentDestinationString()}
             </p>
-            <p>position: {carPosition}</p>
+            {/* <p>position: {JSON.stringify(carLatLng)}</p> */}
             <p>
-              dragging: {dragging}, snap: {snapToCurrentLocation}, displayMode:{' '}
+              dragging: {dragging}, snap: {snapToCurrentLocation}, displayMode:{" "}
               {displayMode.value}
             </p>
             {error != null && <p>{error}</p>}
@@ -298,7 +295,7 @@ const TestMaps = () => {
             onChange={(e) => {
               setSearch(e.currentTarget.value);
             }}
-            type='text'
+            type="text"
           />
           <div className={styles.controls}>
             <div className={styles.buttons}>
@@ -324,55 +321,59 @@ const TestMaps = () => {
         </div>
       </div>
       {isLoaded ? (
-        <GoogleMap
-          onCenterChanged={() => {
-            console.log('changed');
-          }}
-          zoom={1}
-          mapContainerStyle={{
-            width: '100%',
-            height: '100%',
-          }}
-          onDragStart={() => {
-            dragging.value = true;
-          }}
-          onDragEnd={() => {
-            dragging.value = false;
-          }}
-          onLoad={(map) => {
-            onLoad(map);
-            console.log('LOADED');
-          }}
-          onUnmount={onUnmount}
-          options={{
-            gestureHandling: 'cooperative',
-            draggable: displayMode.value !== 'preview',
-            disableDefaultUI: true,
-          }}
-        >
-          {displayMode.value === 'preview' && (
-            <Polyline
-              options={{
-                map: map.value,
-                path: previewRoute.value.decodedOverviewLatLng,
-                strokeColor: 'red',
-              }}
-            />
-          )}
-
-          <OverlayView
-            getPixelPositionOffset={getPixelPositionOffset}
-            mapPaneName='overlayLayer'
-            position={carLatLng.value}
+        <div className={styles.test}>
+          <GoogleMap
+            className={styles.test}
+            onCenterChanged={() => {
+              console.log("changed");
+            }}
+            zoom={1}
+            mapContainerStyle={{
+              width: "100%",
+              height: "100%",
+            }}
+            onDragStart={() => {
+              dragging.value = true;
+            }}
+            onDragEnd={() => {
+              dragging.value = false;
+            }}
+            onLoad={(map) => {
+              // map.pan
+              onLoad(map);
+              console.log("LOADED");
+            }}
+            onUnmount={onUnmount}
+            options={{
+              gestureHandling: "cooperative",
+              draggable: displayMode.value !== "preview",
+              disableDefaultUI: true,
+            }}
           >
-            <CarMarker />
-          </OverlayView>
-          {displayMode.value === 'navigate' && <CurrentStepPolyline />}
-          {displayMode.value === 'navigate' &&
-            currentRoute.value.legs[0].steps.map((step, idx) => {
-              return <StepsPolyline latLng={step.latLng} key={idx} />;
-            })}
-        </GoogleMap>
+            {displayMode.value === "preview" && (
+              <Polyline
+                options={{
+                  map: map.value,
+                  path: previewRoute.value.decodedOverviewLatLng,
+                  strokeColor: "red",
+                }}
+              />
+            )}
+
+            <OverlayView
+              getPixelPositionOffset={getPixelPositionOffset}
+              mapPaneName="overlayLayer"
+              position={carLatLng.value}
+            >
+              <CarMarker />
+            </OverlayView>
+            {displayMode.value === "navigate" && <CurrentStepPolyline />}
+            {displayMode.value === "navigate" &&
+              currentRoute.value.steps.map((step, idx) => {
+                return <StepsPolyline step={step} key={idx} idx={idx} />;
+              })}
+          </GoogleMap>
+        </div>
       ) : (
         <h1>loading...</h1>
       )}

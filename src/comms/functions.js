@@ -32,6 +32,10 @@ function filterOutliers(someArray) {
   return filteredValues;
 }
 
+function formatNumber(number) {
+  return parseFloat((Math.round(parseFloat(number) * 100) / 100).toFixed(2));
+}
+
 // Actual comms
 async function socketRequest(key, timeout = 3000, ...args) {
   const _socket = socket.value;
@@ -45,7 +49,7 @@ async function socketRequest(key, timeout = 3000, ...args) {
 
   return new Promise(async (resolve, reject) => {
     function onTimeout() {
-      reject("Timed out");
+      reject(`Timed out: ${key}`);
     }
 
     const timer = setTimeout(() => {
@@ -63,4 +67,4 @@ async function socketRequest(key, timeout = 3000, ...args) {
   });
 }
 
-export { filterOutliers, socketRequest };
+export { filterOutliers, socketRequest, formatNumber };
