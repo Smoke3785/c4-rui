@@ -16,6 +16,7 @@ const resistor33 = signal(0);
 // Position
 const fakeCarPosition = signal({ lat: 0, lng: 0 });
 const carPosition = signal({ lat: 0, lng: 0 });
+// Position - computed
 const carLatLng = computed(() => {
   return carPosition.value;
 });
@@ -24,12 +25,20 @@ const carLatLng = computed(() => {
 const previewRoute = signal(null);
 const currentRoute = signal(null);
 const currentStep = signal(null);
+const nextPoint = signal(null);
+const calculating = signal(null);
+// Navigation - computed
 const currentStepObject = computed(() => {
   if (!currentRoute.value) return null;
   return currentRoute?.value?.steps?.[currentStep?.value] || null;
 });
-const nextPoint = signal(null);
 const nextPointCoordinates = computed(() => {
+  console.log({
+    currentRoute: currentRoute.value,
+    currentStepObject: currentStepObject.value,
+    nextPoint: nextPoint.value,
+    nextPointCoordinates: currentStepObject?.value?.points?.[nextPoint?.value],
+  });
   if (!currentRoute.value) return null;
   return currentStepObject?.value?.points?.[nextPoint?.value] || null;
 });
@@ -113,13 +122,13 @@ const averageLatency = computed(() => {
     filteredLatencies.value.length;
   let roundedSum = (Math.round(summedLatencies) * 100) / 100;
 
-  return roundedSum.toFixed(2);
+  return parseFloat(roundedSum.toFixed(2));
 });
 const lastLatency = computed(() => {
   let mostRecentLatency =
     filteredLatencies.value[filteredLatencies.value.length - 1];
 
-  return new Number(mostRecentLatency).toFixed(2);
+  return parseFloat(parseFloat(mostRecentLatency).toFixed(2));
 });
 
 // Update functions
@@ -147,6 +156,7 @@ const signalStore = {
   currentRoute,
   currentStep,
   nextPoint,
+  calculating,
   // Other
   latencyRecord,
   lastLatency,
@@ -174,6 +184,7 @@ async function initializeComms() {
 
 export default initializeComms;
 
+// NOTE - NEED TO ORGANIZE THESE
 export {
   // Socket
   socket,
@@ -186,6 +197,7 @@ export {
   currentStep,
   currentStepObject,
   nextPoint,
+  calculating,
   lastPointCoordinates,
   nextPointCoordinates,
   currentStepPointVectors,

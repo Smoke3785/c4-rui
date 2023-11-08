@@ -1,0 +1,25 @@
+.table {
+  table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    td {
+      padding: 5px 10px;
+    }
+    tr {
+      cursor: pointer;
+      &:nth-child(2n) {
+        background-color: rgb(226, 226, 226);
+      }
+      &:hover {
+        background-color: rgb(189, 189, 189);
+      }
+    }
+  }
+}
+
+.key {
+  min-width: 300px;
+  max-width: 300px;
+  width: 300px;
+}

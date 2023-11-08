@@ -114,7 +114,7 @@ const StepsPolyline = ({ step, idx }) => {
         options={{
           map: map.value,
           path: step.points,
-          strokeColor: "red",
+          strokeColor: currentStep < idx ? "red" : "gray",
         }}
       />
     );
@@ -122,6 +122,10 @@ const StepsPolyline = ({ step, idx }) => {
 };
 
 const CurrentStepPolyline = () => {
+  if (!(firstSubStep?.value?.[0] && firstSubStep?.value?.[1])) {
+    return null;
+  }
+
   let lt = vectorMath.midpoint(firstSubStep.value[0], firstSubStep.value[1]);
 
   let labelPosition = {
@@ -170,7 +174,7 @@ const CurrentStepPolyline = () => {
 };
 
 const TestMaps = () => {
-  const [search, setSearch] = useState("white house");
+  const [search, setSearch] = useState("Turnabout Boxing Dubois PA");
   const [error, setError] = useState("null");
   const [loading, setLoading] = useState(false);
 

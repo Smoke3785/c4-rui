@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import TestDashboard from "../App";
 import TestMaps from "../pages/TestMaps";
 import { withState } from "../context/appContext";
+import Debug from "../pages/Debug";
 
 const router = createBrowserRouter([
   {
@@ -13,6 +14,10 @@ const router = createBrowserRouter([
   {
     path: "/maps",
     element: <TestMaps />,
+  },
+  {
+    path: "/debug",
+    element: <Debug />,
   },
 ]);
 
