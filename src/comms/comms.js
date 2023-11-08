@@ -28,6 +28,9 @@ const currentStep = signal(null);
 const nextPoint = signal(null);
 const calculating = signal(null);
 // Navigation - computed
+const arrived = computed(() => {
+  return !!currentRoute?.value?.arrived;
+});
 const currentStepObject = computed(() => {
   if (!currentRoute.value) return null;
   return currentRoute?.value?.steps?.[currentStep?.value] || null;
@@ -207,6 +210,7 @@ export {
   distanceToDestination,
   // Derived state
   carLatLng,
+  arrived,
   // Other
   latencyRecord,
   lastLatency,

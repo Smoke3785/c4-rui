@@ -31,6 +31,7 @@ import {
   distanceFromNextPoint,
   distanceToNextStep,
   distanceToDestination,
+  arrived,
 } from "../comms/comms";
 import { socketRequest } from "../comms/functions";
 
@@ -174,7 +175,7 @@ const CurrentStepPolyline = () => {
 };
 
 const TestMaps = () => {
-  const [search, setSearch] = useState("Turnabout Boxing Dubois PA");
+  const [search, setSearch] = useState("Jefferson State Police, Dubois PA");
   const [error, setError] = useState("null");
   const [loading, setLoading] = useState(false);
 
@@ -195,6 +196,9 @@ const TestMaps = () => {
   }
   async function clearRoute() {
     const response = await socketRequest("clearRoutePreview", 5000);
+  }
+  async function clearCurrentRoute() {
+    const response = await socketRequest("clearCurrentRoute", 5000);
   }
   function centerView() {
     snapToCurrentLocation.value = true;
@@ -287,7 +291,6 @@ const TestMaps = () => {
             <p className={styles.dest}>
               Destination: {currentDestinationString()}
             </p>
-            {/* <p>position: {JSON.stringify(carLatLng)}</p> */}
             <p>
               dragging: {dragging}, snap: {snapToCurrentLocation}, displayMode:{" "}
               {displayMode.value}
@@ -326,6 +329,20 @@ const TestMaps = () => {
       </div>
       {isLoaded ? (
         <div className={styles.test}>
+          {arrived.value === true && (
+            <div className={styles.arrivalWindow}>
+              <div className={styles.arrivalContent}>
+                <h1>Arrived!</h1>
+                <p>
+                  Trip time:{" "}
+                  {currentRoute.value.arrivalTime -
+                    currentRoute.value.beginningTimestamp}
+                  ms
+                </p>
+              </div>
+              <button onClick={clearCurrentRoute}>Clear current route</button>
+            </div>
+          )}
           <GoogleMap
             className={styles.test}
             onCenterChanged={() => {
